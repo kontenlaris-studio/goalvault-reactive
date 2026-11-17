@@ -30,6 +30,7 @@ contract MockSystemContract {
     }
 
     Subscription[] public subscriptions;
+    Subscription[] public unsubscriptions;
     CallbackRequest[] public callbackRequests;
     uint256 public legacyCallbackCount;
 
@@ -54,8 +55,25 @@ contract MockSystemContract {
         );
     }
 
-    function unsubscribe(uint256, address, uint256, uint256, uint256, uint256) external {
-        // Not needed by the contracts under test.
+    function unsubscribe(
+        uint256 chainId_,
+        address contract_,
+        uint256 topic0_,
+        uint256 topic1_,
+        uint256 topic2_,
+        uint256 topic3_
+    ) external {
+        unsubscriptions.push(
+            Subscription({
+                chainId: chainId_,
+                contractAddress: contract_,
+                topic0: topic0_,
+                topic1: topic1_,
+                topic2: topic2_,
+                topic3: topic3_,
+                subscriber: msg.sender
+            })
+        );
     }
 
     function requestCallbackV_1_0(ISystemContract.CallbackConfiguration_V_1_0 memory config_) external {
@@ -83,6 +101,10 @@ contract MockSystemContract {
     // --- Test helpers ---
     function subscriptionCount() external view returns (uint256) {
         return subscriptions.length;
+    }
+
+    function unsubscriptionCount() external view returns (uint256) {
+        return unsubscriptions.length;
     }
 
     function callbackRequestCount() external view returns (uint256) {

@@ -46,6 +46,22 @@ Toolchain used for the build: Foundry `forge 1.9.0`, solc `0.8.29`.
 - [ ] Sources verified (Sourcify) on both chains
 - [ ] Addresses pasted into `dashboard/config.js`
 
+## Post-deploy operations (audit upgrade — no deploy-order changes)
+
+Constructor signatures and the wiring order above are unchanged by the
+audit/upgrade pass (zero-address validation was added inside the existing
+constructors). New owner operations available after deployment:
+
+- **Pause a template's automation:** `cast send $REACTIVE "pause()"` on Lasna
+  (unsubscribes at the system contract; resume with `"resume()"`).
+- **Retry a lost callback:** `cast send $REACTIVE "retryCallback(uint256)" <goalId>`
+  on Lasna — only for goals whose callback already fired (`callbackSent`).
+- **Creator cancel:** goal creators call `cancelGoal(uint256)` /
+  `cancelEscrow(uint256)` on the Sepolia vault; contributors then claim
+  refunds with `withdraw()` on the same vault.
+- `scripts/collect-proof.sh` also reports goal lifecycle (completed/cancelled)
+  and the reactive contract's paused state.
+
 ## Proof trail (fill in after the live loop runs — see PROOF.md)
 
 | # | Tx | Hash |

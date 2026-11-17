@@ -24,6 +24,8 @@ contract TemplateRegistry {
 
     error NotOwner();
     error InvalidVault();
+    error InvalidCallback();
+    error TemplateNotFound(uint256 templateId);
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -40,12 +42,14 @@ contract TemplateRegistry {
         returns (uint256 templateId)
     {
         if (vault == address(0)) revert InvalidVault();
+        if (callback_ == address(0)) revert InvalidCallback();
         templateId = templates.length;
         templates.push(Template({ name: name, kind: kind, vault: vault, callback: callback_, active: true }));
         emit TemplateRegistered(templateId, name, kind, vault);
     }
 
     function setTemplateActive(uint256 templateId, bool active) external onlyOwner {
+        if (templateId >= templates.length) revert TemplateNotFound(templateId);
         templates[templateId].active = active;
         emit TemplateActiveSet(templateId, active);
     }
@@ -59,6 +63,7 @@ contract TemplateRegistry {
         view
         returns (string memory name, string memory kind, address vault, address callback, bool active)
     {
+        if (templateId >= templates.length) revert TemplateNotFound(templateId);
         Template storage t = templates[templateId];
         return (t.name, t.kind, t.vault, t.callback, t.active);
     }

@@ -14,6 +14,17 @@ import { IReleasableVault } from "../interfaces/IReleasableVault.sol";
 ///              construction — getting it wrong means redeploying, by design).
 ///         On a valid callback it calls `release(goalId)` on the wired vault template;
 ///         the vault's executor must be this contract.
+///
+/// @dev Failure handling (audit-hardened): a REVERTING callback is still billed
+///      in full by the proxy and repeated failures can push this contract into
+///      debt — and debt halts ALL deliveries. So `onGoalReached` never lets a
+///      vault-side failure revert the delivery: `release()` is attempted inside
+///      try/catch and a failure is surfaced as a `CallbackFailed` event instead.
+///      This is safe because release failures here are either impossible-by-
+///      construction (unknown goal id — the reactive side only fires for real
+///      vault events) or benign races (goal cancelled by its creator after the
+///      target was crossed, or a duplicate delivery after a `retryCallback` —
+///      the goal is already completed/refunded and must not be paid twice).
 contract GoalCallback is AbstractCallback {
     address public owner;
     /// @notice The vault template this callback releases funds from (GoalVault or
@@ -22,10 +33,13 @@ contract GoalCallback is AbstractCallback {
     IReleasableVault public vault;
 
     event CallbackHandled(address indexed reactive, uint256 indexed goalId);
+    event CallbackFailed(address indexed reactive, uint256 indexed goalId);
     event VaultSet(address indexed vault);
 
     error NotOwner();
     error InvalidVault();
+    error InvalidCallbackSender();
+    error InvalidCallbackProxy();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -39,6 +53,13 @@ contract GoalCallback is AbstractCallback {
         payable
         AbstractCallback(callbackProxy_, callbackSender_)
     {
+        // Zero checks are load-bearing: a zero proxy or sender makes every
+        // callback unauthorizable (dead on arrival), and a zero vault makes
+        // release() a silent no-op call to an empty account — callbacks would
+        // look delivered while nothing ever happens.
+        if (address(callbackProxy_) == address(0)) revert InvalidCallbackProxy();
+        if (callbackSender_ == address(0)) revert InvalidCallbackSender();
+        if (vault_ == address(0)) revert InvalidVault();
         owner = msg.sender;
         vault = IReleasableVault(vault_);
     }
@@ -57,8 +78,12 @@ contract GoalCallback is AbstractCallback {
         onlyServiceProvider
         onlyCallbackSender(reactive_)
     {
-        emit CallbackHandled(reactive_, goalId);
-        vault.release(goalId);
+        try vault.release(goalId) {
+            emit CallbackHandled(reactive_, goalId); // forge-lint: disable-line(reentrancy-events) — reports the try/catch outcome; cannot be emitted before the call.
+        } catch {
+            // Absorbed on purpose — see the contract-level note on billing/debt.
+            emit CallbackFailed(reactive_, goalId); // forge-lint: disable-line(reentrancy-events) — same as above.
+        }
     }
 
     /// @notice Recover from debt on the callback-proxy side (debt halts delivery).

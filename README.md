@@ -95,6 +95,43 @@ Design decisions worth noting:
   `SYSTEM.requestCallbackV_1_0(...)`, `onlySystem`, `reactive-lib-omni`,
   Solidity `^0.8.29`. No RVM, no `vmOnly`, no `Callback` event.
 
+## Lifecycle & safety (audit-hardened)
+
+Automations that run unattended need an off switch and a recovery path. This
+system has all of them, on-chain:
+
+- **Creator cancel & refund** — a goal's creator (or an escrow's client) can
+  cancel *before completion*. Every contributor is credited exactly their own
+  contribution as a pull balance (`pendingWithdrawals`, claimed via
+  `withdraw()`) — per-depositor accounting means a refund can never touch
+  another goal's funds. Cancellation is race-safe against an in-flight
+  callback: deposits stop immediately, and `release()` refuses cancelled
+  goals, so the payout cannot also happen.
+- **Pause / resume** — the reactive contract's owner can `pause()` it, which
+  unsubscribes at the system contract (no reactions, no billing) and
+  `resume()` to re-subscribe with the exact same criteria. A broken
+  automation can be stopped without redeploying anything.
+- **Callback retry** — if a fired callback was never delivered on Sepolia
+  (e.g. reserves ran dry mid-flight), the owner can `retryCallback(goalId)`.
+  Safe by construction: the vault's `release()` is idempotent, and duplicate
+  deliveries are absorbed by the callback contract.
+- **Push-with-pull-fallback payouts** — if a beneficiary cannot receive ETH
+  at the moment the callback lands, `release()` no longer reverts (which,
+  with a one-shot reactive trigger, would have stranded the funds forever).
+  The amount becomes a pull credit instead; the goal still completes.
+- **Absorbing callback receiver** — `GoalCallback` wraps `release()` in
+  try/catch and reports failures as `CallbackFailed` events rather than
+  reverting the delivery: a reverting callback is still billed in full and
+  repeated failures can push the contract into debt, halting all deliveries.
+- **Reentrancy discipline** — checks-effects-interactions on every ETH path
+  plus a hand-rolled reentrancy lock on `release()`/`withdraw()` in both
+  vaults, proven by a malicious-beneficiary test that reenters mid-payout
+  and still receives exactly the goal total, exactly once.
+- **Zero-address discipline** — every constructor and wiring setter validates
+  its addresses (a zero vault in `GoalCallback` previously made callbacks
+  silently succeed while doing nothing; chain id `0` in `GoalReactive` is
+  the ANY-chain subscription wildcard and is rejected).
+
 ## Repository layout
 
 ```
@@ -105,10 +142,12 @@ Design decisions worth noting:
 │   ├── sepolia/GoalCallback.sol          # destination receiver (AbstractCallback)
 │   ├── sepolia/TemplateRegistry.sol      # on-chain template catalogue
 │   └── reactive/GoalReactive.sol         # the brain (AbstractReactive, on Lasna)
-├── test/                                 # 29 tests, incl. a mock system contract
+├── test/                                 # 58 tests, incl. a mock system contract
 │   ├── GoalReactive.t.sol                #   etched at 0x8888…8888 + full-loop sims
 │   ├── GoalVault.t.sol  GoalCallback.t.sol  FullLoop.t.sol  TemplateRegistry.t.sol
-│   └── mocks/MockSystemContract.sol
+│   ├── AuditPOC.t.sol                    #   regression tests for the audit findings
+│   ├── CancelRefund.t.sol  ReactiveLifecycle.t.sol  FuzzThreshold.t.sol
+│   └── mocks/                            # MockSystemContract + hostile actors
 ├── dashboard/                            # the low-code layer (static, ethers v6 CDN)
 │   ├── index.html  app.js  style.css
 │   └── config.js                         # ← paste deployed addresses here
@@ -125,12 +164,15 @@ forge build
 forge test
 ```
 
-Current status: **`forge build` clean (solc 0.8.29), `forge test` 29/29 passing**,
-including the three behaviours the whole system stands on — below target ⇒ no
-callback request; at/above target ⇒ exactly one callback request with the
-correctly encoded payload; further deposits ⇒ no second callback (one-shot
-guard) — plus full-loop simulations for *both* templates through the same
-engine, and both callback-authentication failure modes.
+Current status: **`forge build` clean with zero lint warnings (solc 0.8.29),
+`forge test` 58/58 passing**, including the three behaviours the whole system
+stands on — below target ⇒ no callback request; at/above target ⇒ exactly
+one callback request with the correctly encoded payload; further deposits ⇒
+no second callback (one-shot guard) — plus full-loop simulations for *both*
+templates through the same engine, both callback-authentication failure
+modes, cancel/refund accounting (unit + fuzz), pause/resume/retry lifecycle,
+reentrancy and payout-failure actors, and fuzzed deposit sequences proving
+the callback fires exactly once, exactly at the crossing deposit.
 
 ## Run the dashboard
 
@@ -142,7 +184,13 @@ cd dashboard && python3 -m http.server 8080   # or any static server / file host
 No build step, no server-side code. Reads work without a wallet; creating and
 funding automations uses your own wallet on Sepolia. Until addresses are pasted
 into `dashboard/config.js`, the dashboard runs in **preview mode** (builder +
-generated parameters live, on-chain creation disabled).
+generated parameters live, on-chain creation disabled) — and if a script or
+the ethers CDN fails to load, it now degrades to a clear notice instead of a
+dead page. The dashboard also shows a **Reactive status** panel (Lasna chain
+check, system-contract and per-template reactive/callback/vault explorer
+links, paused/live state), a per-automation **Cancel & refund** button for
+the connected creator wallet, and a refund bar for claiming pull credits
+(`pendingWithdrawals`) via `withdraw()`.
 
 ## Deploy (deployment stage — not yet executed)
 

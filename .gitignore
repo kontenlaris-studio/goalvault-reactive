@@ -8,3 +8,6 @@ broadcast/
 .env
 .env.*
 !.env.example
+
+# Deployment key file (lives outside the repo in reactive-omni/, listed here as belt-and-braces)
+deploy.env
