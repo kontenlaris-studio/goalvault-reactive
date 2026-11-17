@@ -152,8 +152,8 @@ system has all of them, on-chain:
 │   ├── index.html  app.js  style.css
 │   └── config.js                         # ← paste deployed addresses here
 ├── scripts/trigger.sh  collect-proof.sh  # demo driver + proof collector (deploy stage)
-├── deployments.md                        # addresses + wiring checklist (TBD at deploy)
-└── PROOF.md                              # origin → reaction → callback tx trail (TBD)
+├── deployments.md                        # addresses + wiring checklist (filled, live)
+└── PROOF.md                              # origin → reaction → callback tx trail (filled, live)
 ```
 
 ## Build & test
@@ -192,7 +192,7 @@ links, paused/live state), a per-automation **Cancel & refund** button for
 the connected creator wallet, and a refund bar for claiming pull credits
 (`pendingWithdrawals`) via `withdraw()`.
 
-## Deploy (deployment stage — not yet executed)
+## Deploy (EXECUTED 2026-11-17 — live on Sepolia + Lasna, see PROOF.md)
 
 Full, ordered commands live in `../BUILD-PLAN.md` §4.4 and the checklist in
 [deployments.md](deployments.md). The order is load-bearing:
@@ -217,12 +217,14 @@ Full, ordered commands live in `../BUILD-PLAN.md` §4.4 and the checklist in
 
 | Item | Address / hash |
 |---|---|
-| GoalVault (Sepolia) | _TBD at deployment_ |
-| EscrowVault (Sepolia) | _TBD_ |
-| GoalReactive (Lasna) | _TBD_ |
-| GoalCallback (Sepolia) | _TBD_ |
-| TemplateRegistry (Sepolia) | _TBD_ |
-| Proof: origin tx → reactive tx → callback tx | _see PROOF.md_ |
+| GoalVault (Sepolia) | `0x974465f83CC332810d475b1092F96A4376434eCD` |
+| EscrowVault (Sepolia) | `0x942e0d1cCB31B6C4a12E6b479D6F406C644DeE8E` |
+| GoalReactive for GoalVault (Lasna) | `0x24dB62b02e0D6Fd5863ab554e08aE61A44604e0D` |
+| GoalReactive for EscrowVault (Lasna) | `0x974465f83CC332810d475b1092F96A4376434eCD` (same string as GoalVault — different chain, same deployer nonce) |
+| GoalCallback for GoalVault (Sepolia) | `0xfC568793c7f2a04178F4809c10312D98E61e33f1` |
+| GoalCallback for EscrowVault (Sepolia) | `0xc772B94E8f61A3BF98A450a85aB11606190432D0` |
+| TemplateRegistry (Sepolia) | `0x4a30CD68D2046E37f3f8cF81431d743c0b227400` |
+| Proof: origin tx → reactive tx → callback tx | `0x34237a26…52ef3` → `0x134498f8…30e0` → `0xdb51a119…a892` — full trail for both templates in [PROOF.md](PROOF.md) |
 
 ## Networks
 

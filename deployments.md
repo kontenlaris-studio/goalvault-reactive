@@ -1,7 +1,14 @@
 # Deployments — GoalVault (Reactive Omni Buildathon)
 
-Status: **NOT DEPLOYED YET.** This file is filled in during the deployment stage.
+Status: **DEPLOYED & LIVE-PROVEN 2026-11-17.** All 7 contracts deployed, wired,
+funded, debt == 0, and both templates completed the full Reactive loop on-chain
+(see [PROOF.md](PROOF.md)).
 Toolchain used for the build: Foundry `forge 1.9.0`, solc `0.8.29`.
+Deployer: `0xf389eC3AcaCE9B1062F113a72af6Db4AE1eA204F` (testnet-only wallet;
+key lives outside this repo, never committed).
+Note: `GoalReactive (for EscrowVault)` on Lasna has the same address string as
+`GoalVault` on Sepolia (`0x9744…4eCD`) — same deployer + same nonce on two
+different chains; not a typo.
 
 ## Networks
 
@@ -23,28 +30,28 @@ Toolchain used for the build: Foundry `forge 1.9.0`, solc `0.8.29`.
 
 | Contract | Chain | Address | Deploy tx |
 |---|---|---|---|
-| GoalVault | Sepolia | _TBD_ | _TBD_ |
-| EscrowVault | Sepolia | _TBD_ | _TBD_ |
-| TemplateRegistry | Sepolia | _TBD_ | _TBD_ |
-| GoalReactive (for GoalVault) | Lasna | _TBD_ | _TBD_ |
-| GoalReactive (for EscrowVault) | Lasna | _TBD_ | _TBD_ |
-| GoalCallback (for GoalVault) | Sepolia | _TBD_ | _TBD_ |
-| GoalCallback (for EscrowVault) | Sepolia | _TBD_ | _TBD_ |
+| GoalVault | Sepolia | `0x974465f83CC332810d475b1092F96A4376434eCD` | `0xf107a59d1da07bd7aeb21743e2aa6d8ccc6a60ed0808652ff121103b95460559` |
+| EscrowVault | Sepolia | `0x942e0d1cCB31B6C4a12E6b479D6F406C644DeE8E` | `0xee50d6c328b8cc7bca879bb7207259b61e2e622d3b0d252b0b09b32d7bb6b7ea` |
+| TemplateRegistry | Sepolia | `0x4a30CD68D2046E37f3f8cF81431d743c0b227400` | `0xeec9ff04b2ea68afe2d39cb6a23700c49a84583cccde3969425072a367a35dad` |
+| GoalReactive (for GoalVault) | Lasna | `0x24dB62b02e0D6Fd5863ab554e08aE61A44604e0D` | `0x8126d15b56e4e8d7c26a3f2bd20555ba6d62856741f17c159c93075fd3fffea3` |
+| GoalReactive (for EscrowVault) | Lasna | `0x974465f83CC332810d475b1092F96A4376434eCD` | `0x75ada755b803c8fcc04b8038948593ee130754c302cfeabc95570b98cf540a82` |
+| GoalCallback (for GoalVault) | Sepolia | `0xfC568793c7f2a04178F4809c10312D98E61e33f1` | `0xefbe9ea35bd785e7483bbf0e462bb0f2587a204253574a1a50f992559b812551` |
+| GoalCallback (for EscrowVault) | Sepolia | `0xc772B94E8f61A3BF98A450a85aB11606190432D0` | `0x191961c5ef250d58dbb19c11766ca0068bfc431f311ff24c196f0aa6eec6fae8` |
 
 ## Wiring checklist (order matters — see BUILD-PLAN §4.4)
 
-- [ ] Deployer funded: Sepolia ETH + lREACT (faucet contract above)
-- [ ] GoalVault + EscrowVault deployed on Sepolia
-- [ ] GoalReactive ×2 deployed on Lasna (constructor subscribes)
-- [ ] Reactive contracts funded via `SYSTEM.depositTo(reactive)` (~1 lREACT each)
-- [ ] GoalCallback ×2 deployed on Sepolia with (proxy, reactive address, vault)
-- [ ] Callback contracts funded via proxy `depositTo(callback)` (~0.1 Sepolia ETH each)
-- [ ] `reactive.setRecipient(callback)` ×2
-- [ ] `vault.setExecutor(callback)` ×2 (one-time!)
-- [ ] Registry: register both templates
-- [ ] Debt check: `cast call $SYSTEM "debt(address)" $REACTIVE` == 0 on both sides
-- [ ] Sources verified (Sourcify) on both chains
-- [ ] Addresses pasted into `dashboard/config.js`
+- [x] Deployer funded: Sepolia ETH (0.15475) + lREACT (0.03 ETH → 3.15 lREACT via faucet contract above)
+- [x] GoalVault + EscrowVault deployed on Sepolia
+- [x] GoalReactive ×2 deployed on Lasna (constructor subscribes)
+- [x] Reactive contracts funded via `SYSTEM.depositTo(reactive)` (1 lREACT each)
+- [x] GoalCallback ×2 deployed on Sepolia with (proxy, reactive address, vault)
+- [x] Callback contracts funded via proxy `depositTo(callback)` (0.03 Sepolia ETH each)
+- [x] `reactive.setRecipient(callback)` ×2
+- [x] `vault.setExecutor(callback)` ×2 (one-time!)
+- [x] Registry: register both templates
+- [x] Debt check: `debt()` == 0 on both sides — re-checked again after the live loops, still 0 ×4
+- [x] Sources verified (Sourcify) — verification jobs submitted for all 7 contracts on both chains
+- [x] Addresses pasted into `dashboard/config.js` (done by `deploy-all.sh`, proof hashes added after the trigger run)
 
 ## Post-deploy operations (audit upgrade — no deploy-order changes)
 
@@ -64,9 +71,12 @@ constructors). New owner operations available after deployment:
 
 ## Proof trail (fill in after the live loop runs — see PROOF.md)
 
+Full trail with both templates, explorer links and outcome checks: see
+[PROOF.md](PROOF.md). Headline hashes (Template #1 — GoalVault):
+
 | # | Tx | Hash |
 |---|---|---|
-| 1 | Origin deposit crossing the target (Sepolia) | _TBD_ |
-| 2 | Reactive tx on Lasna (`GoalTargetHit` + `CallbackRequest`) | _TBD_ |
-| 3 | Callback delivery / payout (Sepolia) | _TBD_ |
-| + | Below-target deposit's reactive tx (condition correctly NOT firing) | _TBD_ |
+| 1 | Origin deposit crossing the target (Sepolia) | `0x34237a26af37c319c7a8dbc24ee7ace2e7fcca237c8c5cc47afa112945152ef3` |
+| 2 | Reactive tx on Lasna (`GoalTargetHit` + callback request) | `0x134498f8fde439857db7db8df0dfaff5105e1690f72526017a1b3b63340e30e0` |
+| 3 | Callback delivery / payout (Sepolia) | `0xdb51a1193e9d33c74105b955852305e189f1019ef7abbbf64563a918047ca892` |
+| + | Below-target deposit's reactive tx (ran, zero logs — correctly NOT firing) | `0x4db0e39524f39cb96b95d0ee1778e435cc377fad7a4ce82102857a7c20b89224` |

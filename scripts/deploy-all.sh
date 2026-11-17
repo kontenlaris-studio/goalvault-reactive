@@ -67,9 +67,21 @@ bal_lasna()   { cast balance "$DEPLOYER" --rpc-url "$LASNA_RPC"; }
 # capture it with $(...)); all informational output goes to stderr.
 deploy() { # $1=rpc  $2=contract(path:Name)  $3..=constructor args
   local rpc="$1" contract="$2"; shift 2
-  local out addr
-  out="$(forge create "$contract" --rpc-url "$rpc" --private-key "$PRIVATE_KEY" --broadcast "$@" 2>&1)" \
-    || { echo "$out" >&2; echo "ABORT: deploy failed for $contract" >&2; exit 1; }
+  local out addr attempt
+  # Retry on "nonce too low": load-balanced public RPCs (publicnode) can hand
+  # forge a stale nonce from a lagging node while the chain head has moved on
+  # (hit live 2026-11-17: GoalVault landed, EscrowVault deploy got nonce 1
+  # when next nonce was already 2). A nonce-too-low tx never landed, so
+  # retrying after a pause is safe.
+  for attempt in 1 2 3 4 5 6; do
+    if out="$(forge create "$contract" --rpc-url "$rpc" --private-key "$PRIVATE_KEY" --broadcast "$@" 2>&1)"; then
+      break
+    fi
+    if printf '%s' "$out" | grep -qi 'nonce too low' && [ "$attempt" -lt 6 ]; then
+      echo "   (nonce sync lag on $contract — retry $attempt/6 in 8s)" >&2; sleep 8; out=""; continue
+    fi
+    echo "$out" >&2; echo "ABORT: deploy failed for $contract" >&2; exit 1
+  done
   echo "$out" | grep -vE '^(Compiler run|Compiling|No files changed)' >&2 || true
   addr="$(printf '%s\n' "$out" | sed -n 's/.*Deployed to:[[:space:]]*\(0x[0-9a-fA-F]\{40\}\).*/\1/p' | head -1)"
   if [ -z "$addr" ]; then
@@ -87,11 +99,20 @@ except Exception:
 
 send() { # $1=rpc $2=target $3=signature $4..=args (may include --value via $SEND_VALUE)
   local rpc="$1" target="$2" sig="$3"; shift 3
-  if [ -n "${SEND_VALUE:-}" ]; then
-    cast send "$target" --rpc-url "$rpc" --private-key "$PRIVATE_KEY" "$sig" "$@" --value "$SEND_VALUE" >/dev/null
-  else
-    cast send "$target" --rpc-url "$rpc" --private-key "$PRIVATE_KEY" "$sig" "$@" >/dev/null
-  fi
+  local attempt out
+  # Same nonce-lag retry as deploy(): a "nonce too low" rejection means the
+  # tx never landed, so re-sending after a pause cannot double-execute.
+  for attempt in 1 2 3 4 5 6; do
+    if [ -n "${SEND_VALUE:-}" ]; then
+      out="$(cast send "$target" --rpc-url "$rpc" --private-key "$PRIVATE_KEY" "$sig" "$@" --value "$SEND_VALUE" 2>&1)" && break
+    else
+      out="$(cast send "$target" --rpc-url "$rpc" --private-key "$PRIVATE_KEY" "$sig" "$@" 2>&1)" && break
+    fi
+    if printf '%s' "$out" | grep -qi 'nonce too low' && [ "$attempt" -lt 6 ]; then
+      echo "   (nonce sync lag on $sig — retry $attempt/6 in 8s)"; sleep 8; out=""; continue
+    fi
+    echo "$out" >&2; echo "ABORT: send failed for $sig -> $target" >&2; exit 1
+  done
   SEND_VALUE=""
   echo "   ok: $sig -> $target"
 }
@@ -134,15 +155,18 @@ fi
 
 # --- 1. Vaults + Registry on Sepolia -------------------------------------------
 echo "== 1. Deploy vaults + registry (Sepolia)"
-GOAL_VAULT="$(deploy "$SEPOLIA_RPC" src/sepolia/GoalVault.sol:GoalVault)";          echo "   GoalVault:        $GOAL_VAULT"
-ESCROW_VAULT="$(deploy "$SEPOLIA_RPC" src/sepolia/EscrowVault.sol:EscrowVault)";    echo "   EscrowVault:      $ESCROW_VAULT"
-REGISTRY="$(deploy "$SEPOLIA_RPC" src/sepolia/TemplateRegistry.sol:TemplateRegistry)"; echo "   TemplateRegistry: $REGISTRY"
+# PRESET_* env vars (resume support): set one to reuse an already-deployed
+# contract from an aborted earlier run instead of double-deploying it.
+# Verify any preset on-chain yourself before re-running (code + wiring state).
+if [ -n "${PRESET_GOAL_VAULT:-}" ]; then GOAL_VAULT="$PRESET_GOAL_VAULT"; echo "   GoalVault:        $GOAL_VAULT (reused via PRESET)"; else GOAL_VAULT="$(deploy "$SEPOLIA_RPC" src/sepolia/GoalVault.sol:GoalVault)";          echo "   GoalVault:        $GOAL_VAULT"; fi
+if [ -n "${PRESET_ESCROW_VAULT:-}" ]; then ESCROW_VAULT="$PRESET_ESCROW_VAULT"; echo "   EscrowVault:      $ESCROW_VAULT (reused via PRESET)"; else ESCROW_VAULT="$(deploy "$SEPOLIA_RPC" src/sepolia/EscrowVault.sol:EscrowVault)";    echo "   EscrowVault:      $ESCROW_VAULT"; fi
+if [ -n "${PRESET_REGISTRY:-}" ]; then REGISTRY="$PRESET_REGISTRY"; echo "   TemplateRegistry: $REGISTRY (reused via PRESET)"; else REGISTRY="$(deploy "$SEPOLIA_RPC" src/sepolia/TemplateRegistry.sol:TemplateRegistry)"; echo "   TemplateRegistry: $REGISTRY"; fi
 
 # --- 2. Reactive x2 on Lasna (constructor subscribes) ---------------------------
 echo "== 2. Deploy GoalReactive x2 (Lasna)"
-REACTIVE_GOAL="$(deploy "$LASNA_RPC" src/reactive/GoalReactive.sol:GoalReactive --constructor-args 11155111 "$GOAL_VAULT" "$TOPIC0")"
+if [ -n "${PRESET_REACTIVE_GOAL:-}" ]; then REACTIVE_GOAL="$PRESET_REACTIVE_GOAL"; else REACTIVE_GOAL="$(deploy "$LASNA_RPC" src/reactive/GoalReactive.sol:GoalReactive --constructor-args 11155111 "$GOAL_VAULT" "$TOPIC0")"; fi
 echo "   GoalReactive (GoalVault):   $REACTIVE_GOAL"
-REACTIVE_ESCROW="$(deploy "$LASNA_RPC" src/reactive/GoalReactive.sol:GoalReactive --constructor-args 11155111 "$ESCROW_VAULT" "$TOPIC0")"
+if [ -n "${PRESET_REACTIVE_ESCROW:-}" ]; then REACTIVE_ESCROW="$PRESET_REACTIVE_ESCROW"; else REACTIVE_ESCROW="$(deploy "$LASNA_RPC" src/reactive/GoalReactive.sol:GoalReactive --constructor-args 11155111 "$ESCROW_VAULT" "$TOPIC0")"; fi
 echo "   GoalReactive (EscrowVault): $REACTIVE_ESCROW"
 
 # --- 3. Fund reactives via SYSTEM.depositTo (both sides' first funding) ---------
@@ -152,9 +176,9 @@ SEND_VALUE="$REACTIVE_FUND_WEI" send "$LASNA_RPC" "$SYSTEM" "depositTo(address)"
 
 # --- 4. Callbacks x2 on Sepolia (proxy, reactive, vault) -------------------------
 echo "== 4. Deploy GoalCallback x2 (Sepolia) — reactive address is IMMUTABLE here, double-check the log lines above"
-CALLBACK_GOAL="$(deploy "$SEPOLIA_RPC" src/sepolia/GoalCallback.sol:GoalCallback --constructor-args "$SEPOLIA_CALLBACK_PROXY" "$REACTIVE_GOAL" "$GOAL_VAULT")"
+if [ -n "${PRESET_CALLBACK_GOAL:-}" ]; then CALLBACK_GOAL="$PRESET_CALLBACK_GOAL"; else CALLBACK_GOAL="$(deploy "$SEPOLIA_RPC" src/sepolia/GoalCallback.sol:GoalCallback --constructor-args "$SEPOLIA_CALLBACK_PROXY" "$REACTIVE_GOAL" "$GOAL_VAULT")"; fi
 echo "   GoalCallback (GoalVault):   $CALLBACK_GOAL"
-CALLBACK_ESCROW="$(deploy "$SEPOLIA_RPC" src/sepolia/GoalCallback.sol:GoalCallback --constructor-args "$SEPOLIA_CALLBACK_PROXY" "$REACTIVE_ESCROW" "$ESCROW_VAULT")"
+if [ -n "${PRESET_CALLBACK_ESCROW:-}" ]; then CALLBACK_ESCROW="$PRESET_CALLBACK_ESCROW"; else CALLBACK_ESCROW="$(deploy "$SEPOLIA_RPC" src/sepolia/GoalCallback.sol:GoalCallback --constructor-args "$SEPOLIA_CALLBACK_PROXY" "$REACTIVE_ESCROW" "$ESCROW_VAULT")"; fi
 echo "   GoalCallback (EscrowVault): $CALLBACK_ESCROW"
 
 # --- 5. Fund callbacks via proxy depositTo ---------------------------------------
