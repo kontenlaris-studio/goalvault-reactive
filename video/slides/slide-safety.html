@@ -1,0 +1,37 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1920px;height:1080px;background:radial-gradient(1200px 700px at 80% 0%,#13224e 0%,#0b1020 55%);color:#eef2ff;font-family:'DejaVu Sans',sans-serif;padding:64px 80px}
+h1{font-size:58px;margin-bottom:8px} h1 .a{color:#38e1ff}
+p.lead{font-size:29px;color:#c6d2f5;margin-bottom:34px}
+.neg{background:#2b140f;border:2px solid #7a3a1f;border-radius:20px;padding:26px 32px;margin-bottom:30px}
+.neg h2{font-size:33px;margin-bottom:8px;color:#ffb454}
+.neg p{font-size:26px;color:#f5d6c6;line-height:1.45;margin-bottom:8px}
+.hash{font-family:'DejaVu Sans Mono',monospace;font-size:21px;color:#ffb59e;line-height:1.4;word-break:break-all}
+.grid{display:flex;gap:22px}
+.col{flex:1;display:flex;flex-direction:column;gap:22px}
+.item{background:#141d3d;border:2px solid #2b3f7d;border-radius:18px;padding:24px 28px}
+.item h3{font-size:29px;margin-bottom:6px}
+.item h3 .ok{color:#4ade80}
+.item p{font-size:25px;color:#c6d2f5;line-height:1.42}
+</style></head><body>
+<h1>Safe to leave running — <span class="a">negative proof &amp; safety</span></h1>
+<p class="lead">An automation you forget about must be one that cannot fire wrongly — and cannot trap funds.</p>
+
+<div class="neg"><h2>✋ Below target = correctly ignored</h2>
+<p>Deposit of 0.01 ETH (total 0.01 &lt; 0.03 target) on Sepolia:</p>
+<div class="hash">deposit&nbsp;&nbsp;0x304ed1a5561a9329e486f15abb0317081bf19fd586a06ad1be3f11cc075e4606</div>
+<p style="margin-top:8px">Its reaction on Lasna ran — and produced <b>zero logs</b>: no GoalTargetHit, no callback, no payout. State stayed open, beneficiary balance unchanged. (Same result for the escrow template.)</p>
+<div class="hash">reaction 0x4db0e39524f39cb96b95d0ee1778e435cc377fad7a4ce82102857a7c20b89224</div>
+</div>
+
+<div class="grid">
+<div class="col">
+  <div class="item"><h3><span class="ok">✓</span> Cancel &amp; refund</h3><p>Creators can cancel before completion; every contributor is credited exactly their own deposits as a pull refund.</p></div>
+  <div class="item"><h3><span class="ok">✓</span> Pause / resume · retry</h3><p>Owner can pause a reactive contract (unsubscribes, stops billing) and retry a callback that never landed.</p></div>
+</div>
+<div class="col">
+  <div class="item"><h3><span class="ok">✓</span> No trapped funds</h3><p>Payouts are push-with-pull-fallback, callbacks absorb failures in try/catch, and every ETH path has a reentrancy lock.</p></div>
+  <div class="item"><h3><span class="ok">✓</span> Proven, not promised</h3><p>58 / 58 Foundry tests pass — including fuzzed deposit sequences proving the callback fires exactly once, exactly at the crossing deposit. Debt after the live loops: 0 × 4.</p></div>
+</div>
+</div>
+</body></html>

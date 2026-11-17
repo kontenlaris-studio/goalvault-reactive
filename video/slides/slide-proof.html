@@ -1,0 +1,38 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1920px;height:1080px;background:radial-gradient(1200px 700px at 20% 0%,#13224e 0%,#0b1020 55%);color:#eef2ff;font-family:'DejaVu Sans',sans-serif;padding:64px 80px}
+h1{font-size:58px;margin-bottom:8px} h1 .a{color:#38e1ff}
+p.lead{font-size:29px;color:#c6d2f5;margin-bottom:38px}
+.step{display:flex;gap:28px;background:#141d3d;border:2px solid #2b3f7d;border-radius:20px;padding:26px 32px;margin-bottom:22px;align-items:flex-start}
+.num{flex:0 0 64px;height:64px;border-radius:50%;background:#38e1ff;color:#06283a;font-size:34px;font-weight:bold;display:flex;align-items:center;justify-content:center;margin-top:4px}
+.step h2{font-size:33px;margin-bottom:6px}
+.step h2 .chain{color:#ffb454;font-size:26px;text-transform:uppercase;letter-spacing:2px;margin-left:12px}
+.step p{font-size:26px;color:#c6d2f5;line-height:1.4;margin-bottom:8px}
+.hash{font-family:'DejaVu Sans Mono',monospace;font-size:21.5px;color:#8fd8ff;word-break:break-all;line-height:1.35}
+.strip{margin-top:6px;background:#0f2b1d;border:2px solid #1f7a4d;border-radius:18px;padding:22px 32px;font-size:27px;line-height:1.5;color:#b9f4d2}
+.strip b{color:#4ade80}
+.strip .h2{font-family:'DejaVu Sans Mono',monospace;font-size:20px;color:#8fd8ff}
+</style></head><body>
+<h1>The proof — <span class="a">live on testnet, both templates</span></h1>
+<p class="lead">Template #1 · Savings Goal #0 · target 0.03 ETH · beneficiary started at 0 ETH</p>
+
+<div class="step"><div class="num">1</div><div>
+<h2>Crossing deposit — 0.02 ETH lands, total = target <span class="chain">Sepolia</span></h2>
+<p>Deposited(goalId 0, amount 0.02, total 0.03, target 0.03) is emitted by GoalVault.</p>
+<div class="hash">0x34237a26af37c319c7a8dbc24ee7ace2e7fcca237c8c5cc47afa112945152ef3</div>
+</div></div>
+
+<div class="step"><div class="num">2</div><div>
+<h2>Reaction — GoalTargetHit + callback requested <span class="chain">Reactive Lasna</span></h2>
+<p>GoalReactive checks total ≥ target on-chain and fires exactly one callback request.</p>
+<div class="hash">0x134498f8fde439857db7db8df0dfaff5105e1690f72526017a1b3b63340e30e0</div>
+</div></div>
+
+<div class="step"><div class="num">3</div><div>
+<h2>Callback — ONE block later (block 12153732), 0.03 ETH paid out <span class="chain">Sepolia</span></h2>
+<p>CallbackHandled → GoalCompleted. The beneficiary was paid with no manual transaction from anyone.</p>
+<div class="hash">0xdb51a1193e9d33c74105b955852305e189f1019ef7abbbf64563a918047ca892</div>
+</div></div>
+
+<div class="strip">✔ <b>Template #2 (Escrow) ran the same loop:</b> deposit <span class="h2">0xac6e2fa0…ed6b5f1</span> → reaction <span class="h2">0xfdde19cc…4bcd1511</span> → callback <span class="h2">0x47a2aeda…1fa722</span> (also 1 block later). Beneficiary: <b>0 → 0.06 ETH</b> total. Debt: <b>0</b> on all four contracts.</div>
+</body></html>
