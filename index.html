@@ -108,6 +108,8 @@
       <p class="empty">Loading vault state…</p>
     </div>
 
+    <div id="refundBar" class="banner hidden"></div>
+
     <h3 class="subhead">Top up an automation</h3>
     <form id="depositForm" class="form inline">
       <label><span>Automation</span><select id="dSelect"></select></label>
@@ -115,6 +117,14 @@
       <button class="btn" id="depositBtn" type="submit">Deposit</button>
       <span id="depositStatus" class="status"></span>
     </form>
+  </section>
+
+  <!-- Reactive status -->
+  <section class="card">
+    <h2>Reactive status</h2>
+    <p class="muted">Live from the Reactive Lasna testnet — the watcher behind every automation above.
+      If a reactive contract is paused by its owner it unsubscribes and stops reacting (and billing) until resumed.</p>
+    <ul class="facts" id="reactiveStatus"><li>Checking Lasna…</li></ul>
   </section>
 
   <!-- Under the hood -->
