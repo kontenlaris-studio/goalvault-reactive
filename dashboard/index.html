@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GoalVault — Set It and Forget It automations</title>
+<meta name="description" content="A no-code builder for Reactive automations: pick a template, fill a plain-language form, and your vault finishes itself — no keeper, no server, no button to remember." />
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script src="config.js"></script>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div class="brand">⚡ GoalVault <span class="track">Reactive Omni · Set It and Forget It</span></div>
+    <h1>Automations you set up once,<br />that finish themselves.</h1>
+    <p class="sub">Pick a template, answer a few plain questions, and deploy a vault that watches
+      itself. The moment your target is reached, Reactive Network releases the money —
+      no keeper, no server, no cron job, nobody on call.</p>
+    <div class="hero-actions">
+      <button id="connectBtn" class="btn primary">Connect wallet</button>
+      <span id="walletInfo" class="wallet-info">Read-only mode — you can browse everything without a wallet.</span>
+    </div>
+    <div id="previewBanner" class="banner hidden">
+      <strong>Preview mode:</strong> contracts are not deployed yet, so on-chain creation is disabled.
+      The builder and the generated deployment parameters below are fully live — paste the deployed
+      addresses into <code>dashboard/config.js</code> after deployment and this banner disappears.
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- How it works -->
+  <section class="card">
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="step"><span>1</span><h3>You create an automation</h3><p>Choose a template below and fill in the form — who gets paid, and when.</p></div>
+      <div class="step"><span>2</span><h3>You fund it whenever</h3><p>Top up in any number of deposits. Every deposit is a normal Sepolia transaction.</p></div>
+      <div class="step"><span>3</span><h3>Reactive watches for you</h3><p>A contract on Reactive Lasna listens for your vault's deposit events and checks the total against your target — on-chain, in about a second.</p></div>
+      <div class="step"><span>4</span><h3>It finishes itself</h3><p>Target reached? A callback lands back on Sepolia and releases the funds to your beneficiary automatically. That's it — you're done since step 1.</p></div>
+    </div>
+  </section>
+
+  <!-- Builder -->
+  <section class="card" id="builder">
+    <h2>1 · Pick a template</h2>
+    <div class="templates" id="templatePicker">
+      <button class="template selected" data-template="goalvault">
+        <div class="t-icon">🎯</div>
+        <h3>Savings Goal</h3>
+        <p>Save toward a target — a laptop, a trip, a safety net. When the pot reaches the target, it pays out to whoever you named.</p>
+        <span class="t-tag">Template #1 · GoalVault</span>
+      </button>
+      <button class="template" data-template="escrow">
+        <div class="t-icon">🤝</div>
+        <h3>Pay When Funded</h3>
+        <p>Escrow for a job or purchase. The client funds it in instalments; the moment it's fully funded, the freelancer gets paid — no release button to chase.</p>
+        <span class="t-tag">Template #2 · EscrowVault</span>
+      </button>
+      <button class="template soon" disabled>
+        <div class="t-icon">🔔</div>
+        <h3>Threshold Alert</h3>
+        <p>Get an on-chain alert the moment any balance or price crosses your line.</p>
+        <span class="t-tag">Coming soon — same engine, alert callback</span>
+      </button>
+    </div>
+
+    <h2>2 · Describe it in plain language</h2>
+    <form id="builderForm" class="form" autocomplete="off">
+      <label>
+        <span id="labelName">Give it a name <em>(just for you — stored in this browser)</em></span>
+        <input id="fName" type="text" placeholder="e.g. New laptop fund" maxlength="60" />
+      </label>
+      <label>
+        <span id="labelBeneficiary">Who should receive the money?</span>
+        <input id="fBeneficiary" type="text" placeholder="0x… wallet address" spellcheck="false" />
+        <button type="button" class="mini" id="useMyAddress">Use my connected address</button>
+      </label>
+      <label>
+        <span id="labelTarget">How much is the target?</span>
+        <div class="row">
+          <input id="fTarget" type="number" min="0" step="0.001" placeholder="0.03" />
+          <select id="fToken" disabled><option value="ETH">Sepolia ETH (native)</option></select>
+        </div>
+        <small>Deposits are in native Sepolia ETH for this template — no token approvals, ever.</small>
+      </label>
+    </form>
+
+    <h2>3 · Your deployment parameters</h2>
+    <p class="muted">Generated live from the form above. This is exactly what the “Create” button sends —
+      no hidden steps, no code to write.</p>
+    <pre id="paramPreview" class="params">// Fill in the form to generate your parameters…</pre>
+    <div class="row actions">
+      <button id="createBtn" class="btn primary big">Create my automation</button>
+      <span id="createStatus" class="status"></span>
+    </div>
+  </section>
+
+  <!-- My automations -->
+  <section class="card">
+    <div class="row between">
+      <h2>My automations</h2>
+      <button id="refreshBtn" class="btn ghost">↻ Refresh from chain</button>
+    </div>
+    <p class="muted">Read live from Sepolia. Progress updates itself — and when a bar hits 100%,
+      the payout has already happened on its own. That's the whole point.</p>
+    <div id="myAutomations" class="automations">
+      <p class="empty">Loading vault state…</p>
+    </div>
+
+    <h3 class="subhead">Top up an automation</h3>
+    <form id="depositForm" class="form inline">
+      <label><span>Automation</span><select id="dSelect"></select></label>
+      <label><span>Amount (ETH)</span><input id="dAmount" type="number" min="0" step="0.001" placeholder="0.01" /></label>
+      <button class="btn" id="depositBtn" type="submit">Deposit</button>
+      <span id="depositStatus" class="status"></span>
+    </form>
+  </section>
+
+  <!-- Under the hood -->
+  <section class="card">
+    <h2>Under the hood</h2>
+    <p class="muted">For the curious (and the judges): every automation above is three small contracts and one event.</p>
+    <pre class="params">Sepolia                     Reactive Lasna                Sepolia
+─────────                   ──────────────                ─────────
+Vault.deposit() ──event──▶  GoalReactive.react() ──callback──▶ GoalCallback
+  emits Deposited             checks total ≥ target             onGoalReached()
+  (total + target             (one-shot, on-chain)                    │
+   travel in the event)                                               ▼
+                                                              Vault.release()
+                                                              → beneficiary paid</pre>
+    <ul class="facts" id="netFacts"></ul>
+    <div id="proofTrail"></div>
+  </section>
+
+  <footer>
+    <p>GoalVault · Built for the Reactive Omni Buildathon — Track: <strong>Set It and Forget It</strong> ·
+      Origin &amp; destination: Ethereum Sepolia · Reactive network: Lasna · Testnet only — no real funds.</p>
+  </footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
